@@ -1,4 +1,4 @@
-function B=SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma)
+function B=SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma, circ)
 %
 % B=SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma)
 %
@@ -14,18 +14,30 @@ function B=SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma)
 % Function is written by D.Kroon University of Twente (July 2010)
 
 % Penta diagonal matrix, one row:
-b(1)=beta;
-b(2)=-(alpha + 4*beta);
-b(3)=(2*alpha + 6 *beta);
-b(4)=b(2);
-b(5)=b(1);
+alphas_ = [ 0,    -alpha, 2*alpha, -alpha, 0    ]';
+betas_  = [ beta, 4*beta, 6*beta,  4*beta, beta ]';
 
+b = alphas_ + betas_;
+
+eye_ = eye(nPoints);
+
+for ii = 5:-1:1
+    A0(:,:,ii) = circshift(eye_,3-ii);
+end
+
+A_alpha = A0;
+if ~circ
+    A_alpha(1,:,:) = 0;
+    A_alpha(end,:,:) = 0;
+    A_beta = A_alpha;
+    A_beta(2,:,:) = 0;
+    A_beta(end-1,:,:) = 0;
+end
+
+A_ = bsxfun(@times, A_alpha, permute( alphas_(:),[2,3,1]) ) + ...
+    bsxfun(@times, A_beta, permute(betas_(:),[2,3,1]) ) ;
 % Make the penta matrix (for every contour point)
-A=b(1)*circshift(eye(nPoints),2);
-A=A+b(2)*circshift(eye(nPoints),1);
-A=A+b(3)*circshift(eye(nPoints),0);
-A=A+b(4)*circshift(eye(nPoints),-1);
-A=A+b(5)*circshift(eye(nPoints),-2);
+A = sum(A_,3);
 
 % Calculate the inverse
 B=inv(A + gamma.* eye(nPoints));
