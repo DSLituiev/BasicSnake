@@ -1,4 +1,4 @@
-function B=SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma, circ)
+function Ainv = SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma, circ)
 %
 % B=SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma)
 %
@@ -40,6 +40,5 @@ A_ = bsxfun(@times, A_alpha, permute( alphas_(:),[2,3,1]) ) + ...
 A = sum(A_,3);
 
 % Calculate the inverse
-B=inv(A + gamma.* eye(nPoints));
-
-
+[L, U] = lu(A + gamma .* eye(nPoints,nPoints));
+Ainv = inv(U) * inv(L);

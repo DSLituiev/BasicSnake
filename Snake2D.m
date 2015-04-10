@@ -128,11 +128,11 @@ P=MakeContourClockwise2D(P);
 
 % Make an uniform sampled contour description
 if Options.Closed && Options.nPoints ~= size(P,1)
-   P=InterpolateContourPoints2D(P, Options.nPoints);
+    P=InterpolateContourPoints2D(P, Options.nPoints);
 end
 
 % Transform the Image into an External Energy Image
-Eext = ExternalForceImage2D(I, Options.Wline, Options.Wedge, Options.Wterm,Options.Sigma1);
+Eext = -ExternalForceImage2D(I, Options.Wline, Options.Wedge, Options.Wterm,Options.Sigma1);
 
 % Make the external force (flow) field.
 Fx=ImageDerivatives2D(Eext,Options.Sigma2,'x');
@@ -143,30 +143,35 @@ Fext(:,:,2)=-Fy*2*Options.Sigma2^2;
 % Do Gradient vector flow, optimalization
 Fext=GVFOptimizeImageForces2D(Fext, Options.Mu, Options.GIterations, Options.Sigma3);
 
+I_xx_yy = ImageDerivatives2D(I,Options.Sigma2,'xx')+ ImageDerivatives2D(I,Options.Sigma2,'yy');
+
 % Show the image, contour and force field
 if(Options.Verbose)
     h4=figure; set(h4,'render','opengl')
     spl(1) = subplot(2,2,1);
-    imshow(I,[]);
-    hold on; 
+    imagesc(I);
+    hold on;
     title('The image with initial contour')
     spl(2) = subplot(2,2,2);
-    imshow(Eext,[]);
+    imagesc(I_xx_yy);
     hold all
     title('The external energy');
     spl(3) = subplot(2,2,3);
     [x,y]=ndgrid(1:10:size(Fext,1),1:10:size(Fext,2));
-    imshow(I), hold on; quiver(y,x,Fext(1:10:end,1:10:end,2),Fext(1:10:end,1:10:end,1));
+    imagesc(I), hold on; quiver(y,x,Fext(1:10:end,1:10:end,2),Fext(1:10:end,1:10:end,1));
     title('The external force field ')
     spl(4) = subplot(2,2,4);
     title('Snake movement ')
-    imshow(I,[]); hold on;
+    imagesc(I); hold on;
 end
 
 
 % Make the interal force matrix, which constrains the moving points to a
 % smooth contour
-S = SnakeInternalForceMatrix2D(Options.nPoints,Options.Alpha,Options.Beta,Options.Gamma, Options.Closed);
+if size(Options.Fixed, 2) == 1
+    Options.Fixed = [Options.Fixed, Options.Fixed];
+end
+
 %% plotting
     function [x, y] = line_points(P, Closed)
         if Closed
@@ -184,26 +189,39 @@ li = zeros(Options.Iterations,1);
 li(1) = plot(x_,y_,'-','Color',[0 1 0]);
 hold all;
 for ii = 1:4
-axes(spl(ii))
-plot(P(:,2),P(:,1),'.','Color',[0, 0.8, 0] ); 
-hold all;
-h(ii)=scatter(P(:,2),P(:,1),100*pi,'r','.');
+    axes(spl(ii))
+    plot(P(:,2),P(:,1),'.','Color',[0, 0.8, 0] );
+    hold all;
+    h(ii)=scatter(P(:,2),P(:,1),100*pi,'r','.');
 end
 axes(spl(4))
 
+A_inv = SnakeInternalForceMatrix2D(Options.nPoints, Options.Alpha,Options.Beta,Options.Gamma, Options.Closed);
+
+
 for i=1:Options.Iterations
-    P_prev= P;
-    P = SnakeMoveIteration2D(S, P, Fext, Options.Gamma,Options.Kappa, Options.Delta, Options.Fixed);
+    P_prev = P;
+    Options.Kappa = Options.Kappa - 1e-3 * Options.Kappa;
+    
+    %     P = SnakeMoveIteration2D(A_inv, P_prev, Fext, Options.Gamma, Options.Kappa, Options.Delta, Options.Fixed);
+    P = SnakeMoveIteration2DCurveWise(A_inv, P_prev, I_xx_yy, Options.Gamma, Options.Kappa, Options.Delta, Options.Fixed);
     if norm(P_prev - P, Options.Norm)/Options.nPoints < Options.AbsTol
         fprintf('converged in %u iterations!\n', i)
         break
     end
-        
+    
+    if norm(P_prev - P, Options.Norm) > 10
+        P = P_prev;
+        i = i-1;
+        Options.Kappa = Options.Kappa - 1e-2 * Options.Kappa;
+        continue
+    end
+    
     % Show current contour
     if(Options.Verbose)
         c=i/Options.Iterations;
         [x_, y_] = line_points(P, Options.Closed);
-%         set(li, 'xdata',x_, 'ydata', y_, 'Color',[c 1-c 0])
+        %         set(li, 'xdata',x_, 'ydata', y_, 'Color',[c 1-c 0])
         li(i) = line(x_,y_, 'LineStyle', '-','Color', [c, 0.2, 1-c], 'Parent', spl(4));
         set( h , 'xdata', x_, 'ydata', y_, 'zdata', 2*ones(Options.nPoints,1));
         drawnow;
