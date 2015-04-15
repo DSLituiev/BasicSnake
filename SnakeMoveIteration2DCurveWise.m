@@ -1,4 +1,4 @@
-function P = SnakeMoveIteration2DCurveWise(B, P, edgeImg, gamma, kappa, delta, varargin)
+function P = SnakeMoveIteration2DCurveWise(B, P, Fext0, gamma, kappa, delta, varargin)
 % This function will calculate one iteration of contour Snake movement
 %
 % P=SnakeMoveIteration2D(S,P,Fext,gamma,kappa)
@@ -14,14 +14,20 @@ function P = SnakeMoveIteration2DCurveWise(B, P, edgeImg, gamma, kappa, delta, v
 % outputs,
 %   P : The (moved) contour points N x 2;
 %
-% Function is written by D.Kroon University of Twente (July 2010)
+% note that `x` and `y` are in the code conform the legacy notation, 
+% but in fact, the 1st dimension is `y` and the 2nd is `x`
+%
+% (c) Dmytro Lituiev, University of Zurich, 2015
+% Based on a function written by D.Kroon, University of Twente (July 2010)
+
 
 % Clamp contour to boundary
-P(:,1)=min(max(P(:,1),1),size(edgeImg,1));
-P(:,2)=min(max(P(:,2),1),size(edgeImg,2));
+P(:,1) = min(max(P(:,1),1),size(Fext0,1));
+P(:,2) = min(max(P(:,2),1),size(Fext0,2));
 
 % Get image force on the contour points
-Fext1 = kappa*curvewise_edge_energy(P, edgeImg);
+Fext1 = kappa * curvewise_edge_energy(Fext0, P);
+
 % Interp2, can give nan's if contour close to border
 Fext1(isnan(Fext1))=0;
 
@@ -61,7 +67,5 @@ if ~isempty(varargin) && ~isempty(varargin{1})
     end
 end
 % Clamp contour to boundary
-P(:,1)=min(max(P(:,1),1),size(edgeImg,1));
-P(:,2)=min(max(P(:,2),1),size(edgeImg,2));
-
-
+P(:,1)=min(max(P(:,1),1),size(Fext0,1));
+P(:,2)=min(max(P(:,2),1),size(Fext0,2));

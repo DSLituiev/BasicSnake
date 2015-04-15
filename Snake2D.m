@@ -101,10 +101,12 @@ function [P,J]=Snake2D(I,P,Options)
 % Function is written by D.Kroon University of Twente (July 2010)
 
 % Process inputs
-defaultoptions=struct('Verbose',false,'nPoints',100,'Wline',0.04,'Wedge',2,...
-    'Wterm',0.01,'Sigma1',10,'Sigma2',20,'Alpha',0.2,'Beta',0.2,...
-    'Delta',0.1, 'Gamma',1,'Kappa',2,'Iterations',100,'GIterations',0,...
-    'Mu',0.2,'Sigma3',1, 'Closed', true, 'AbsTol',1e-6, 'Norm', 2, 'Fixed', []);
+defaultoptions=struct('Verbose',false,'nPoints',100, 'Wline', 0.04,...
+    'Wedge', 2, 'Wterm',0.01,'Sigma1',10,'Sigma2', 20,...
+    'Alpha', 0.2,'Beta',0.2,'Gamma',1, 'Delta',0.1, 'Kappa',2,...
+    'Iterations', 100, 'GIterations', 0,...
+    'Mu', 0.2, 'Sigma3', 1, 'Closed', true, 'AbsTol',1e-6, ...
+    'Norm', 2, 'Fixed', [], 'forceActsUpon', 'points');
 if(~exist('Options','var')),
     Options=defaultoptions;
 else
@@ -117,6 +119,9 @@ else
     end
 end
 
+Options.ForceOnCurve = strcmpi(Options.('forceActsUpon'), 'curve');
+
+    
 % Convert input to double
 I = double(I);
 
@@ -132,39 +137,53 @@ if Options.Closed && Options.nPoints ~= size(P,1)
 end
 
 % Transform the Image into an External Energy Image
-Eext = -ExternalForceImage2D(I, Options.Wline, Options.Wedge, Options.Wterm,Options.Sigma1);
+Eext = - ExternalForceImage2D(I, Options.Wline, Options.Wedge, Options.Wterm,Options.Sigma1);
 
 % Make the external force (flow) field.
 Fx=ImageDerivatives2D(Eext,Options.Sigma2,'x');
 Fy=ImageDerivatives2D(Eext,Options.Sigma2,'y');
-Fext(:,:,1)=-Fx*2*Options.Sigma2^2;
-Fext(:,:,2)=-Fy*2*Options.Sigma2^2;
+Fext(:,:,1)= Fx*2*Options.Sigma2^2;
+Fext(:,:,2)= Fy*2*Options.Sigma2^2;
 
 % Do Gradient vector flow, optimalization
-Fext=GVFOptimizeImageForces2D(Fext, Options.Mu, Options.GIterations, Options.Sigma3);
+GVF = false;
+if GVF
+    Fext = GVFOptimizeImageForces2D(Fext, Options.Mu, Options.GIterations, Options.Sigma3);
+end
+% Eext = -(cumsum(Fext(:,:,1),1) + cumsum(Fext(:,:,2),2));
+% Eext = (ImageDerivatives2D(I,Options.Sigma1,'xx') + ImageDerivatives2D(I,Options.Sigma1,'yy'));
 
-I_xx_yy = ImageDerivatives2D(I,Options.Sigma2,'xx')+ ImageDerivatives2D(I,Options.Sigma2,'yy');
+% Fext(:,:,1) = -Fx;
+% Fext(:,:,2) = -Fy;
+
+% Fext(:,:,1) = cumsum(-Fext(:,:,1),1);
+% Fext(:,:,2) = cumsum(-Fext(:,:,2),2);
+
+%  Fext(:,:,1) = 2*Options.Sigma1.^2 * Eext;
+%  Fext(:,:,2) = 2*Options.Sigma1.^2 * Eext;
 
 % Show the image, contour and force field
 if(Options.Verbose)
     h4=figure; set(h4,'render','opengl')
     spl(1) = subplot(2,2,1);
-    imagesc(I);
+    imagesc(Fext(:,:,1));
     hold on;
-    title('The image with initial contour')
+    title('x-component')
     spl(2) = subplot(2,2,2);
-    imagesc(I_xx_yy);
+    imagesc(Fext(:,:,2));
     hold all
-    title('The external energy');
+    title('y-component')
     spl(3) = subplot(2,2,3);
-    [x,y]=ndgrid(1:10:size(Fext,1),1:10:size(Fext,2));
-    imagesc(I), hold on; quiver(y,x,Fext(1:10:end,1:10:end,2),Fext(1:10:end,1:10:end,1));
+    spacing = 20;
+    [x,y]=ndgrid(1:spacing:size(Fext,1),1:spacing:size(Fext,2));
+    imagesc(I), hold on; quiver(y,x,...
+        Fext(1:spacing:end,1:spacing:end,2),...
+        Fext(1:spacing:end,1:spacing:end,1), 'w');
     title('The external force field ')
     spl(4) = subplot(2,2,4);
     title('Snake movement ')
-    imagesc(I); hold on;
+    imagesc(Eext); hold on;
 end
-
 
 % Make the interal force matrix, which constrains the moving points to a
 % smooth contour
@@ -173,7 +192,7 @@ if size(Options.Fixed, 2) == 1
 end
 
 %% plotting
-    function [x, y] = line_points(P, Closed)
+    function [x, y] = cp_ordered(P, Closed)
         if Closed
             x = [P(:,2);P(1,2)];
             y = [P(:,1);P(1,1)];
@@ -184,46 +203,66 @@ end
     end
 
 axes(spl(4))
-[x_, y_] = line_points(P,Options.Closed);
-li = zeros(Options.Iterations,1);
-li(1) = plot(x_,y_,'-','Color',[0 1 0]);
+[x0, y0] = cp_ordered(P, Options.Closed);
+[data_interp] = interp_implicit_pchip([x0, y0]);
+% li = zeros(Options.Iterations,1);
+scatter(x0, y0, 5, [0 1 0],'.'); hold all
+li(1) = plot(data_interp(:,1), data_interp(:,2), '-','Color',[0 1 0]);
 hold all;
+title('Energy and the snake contour movement')
+    
 for ii = 1:4
     axes(spl(ii))
     plot(P(:,2),P(:,1),'.','Color',[0, 0.8, 0] );
     hold all;
-    h(ii)=scatter(P(:,2),P(:,1),100*pi,'r','.');
+    h(ii) = scatter(P(:,2),P(:,1),100*pi,'r','.');
 end
 axes(spl(4))
 
-A_inv = SnakeInternalForceMatrix2D(Options.nPoints, Options.Alpha,Options.Beta,Options.Gamma, Options.Closed);
+
+A_inv = SnakeInternalForceMatrix2D(Options.nPoints, Options.Alpha, Options.Beta, Options.Gamma, Options.Closed);
+
+if Options.ForceOnCurve
+%     Fext_preint = zeros(size(Fext));
+%     Fext_preint(:,:,2) = cumsum(Fext(:,:,2), 2)/200;
+%     Fext_preint(:,:,1) = cumsum(Fext(:,:,1), 1)/200;
+    ext_energy_iter_fun = @(x)SnakeMoveIteration2D(A_inv, x, Fext, ...
+    Options.Gamma, Options.Kappa, Options.Delta, Options.ForceOnCurve, Options.Fixed);
+else
+    ext_energy_iter_fun = @(x)SnakeMoveIteration2D(A_inv, x, Fext, ...
+    Options.Gamma, Options.Kappa, Options.Delta, Options.ForceOnCurve, Options.Fixed);
+end
 
 
-for i=1:Options.Iterations
+ii = 1;
+while ii<Options.Iterations
     P_prev = P;
-    Options.Kappa = Options.Kappa - 1e-3 * Options.Kappa;
+    Options.Kappa = Options.Kappa * ( 1 - 1e-5 );
     
-    %     P = SnakeMoveIteration2D(A_inv, P_prev, Fext, Options.Gamma, Options.Kappa, Options.Delta, Options.Fixed);
-    P = SnakeMoveIteration2DCurveWise(A_inv, P_prev, I_xx_yy, Options.Gamma, Options.Kappa, Options.Delta, Options.Fixed);
+    P = ext_energy_iter_fun(P_prev);
     if norm(P_prev - P, Options.Norm)/Options.nPoints < Options.AbsTol
-        fprintf('converged in %u iterations!\n', i)
+        fprintf('converged in %u iterations!\n', ii)
         break
     end
     
-    if norm(P_prev - P, Options.Norm) > 10
+    if norm(P_prev - P, Options.Norm) > 50
+        warning('too big step: %u', round(norm(P_prev - P, Options.Norm)) )
         P = P_prev;
-        i = i-1;
-        Options.Kappa = Options.Kappa - 1e-2 * Options.Kappa;
+        Options.Kappa = Options.Kappa * ( 1 - 1e-2 );
         continue
+    else
+        ii = ii+1;
     end
     
     % Show current contour
     if(Options.Verbose)
         c=i/Options.Iterations;
-        [x_, y_] = line_points(P, Options.Closed);
+        [x0, y0] = cp_ordered(P, Options.Closed);
+        [data_interp] = interp_implicit_pchip([x0, y0]);
         %         set(li, 'xdata',x_, 'ydata', y_, 'Color',[c 1-c 0])
-        li(i) = line(x_,y_, 'LineStyle', '-','Color', [c, 0.2, 1-c], 'Parent', spl(4));
-        set( h , 'xdata', x_, 'ydata', y_, 'zdata', 2*ones(Options.nPoints,1));
+%         li(i) = line(data_interp(:,1), data_interp(:,2), 'LineStyle', '-','Color', [c, 0.2, 1-c], 'Parent', spl(4));
+        set(li(1),  'xdata', data_interp(:,1), 'ydata', data_interp(:,2), 'LineStyle', '-','Color', [c, 0.2, 1-c], 'Parent', spl(4));
+        set( h , 'xdata', x0, 'ydata', y0, 'zdata', 2*ones(Options.nPoints,1));
         drawnow;
     end
 end

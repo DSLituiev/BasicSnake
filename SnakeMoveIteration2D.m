@@ -1,4 +1,4 @@
-function P = SnakeMoveIteration2D(B, P, Fext, gamma, kappa, delta, varargin)
+function P = SnakeMoveIteration2D(B, P, Fext0, gamma, kappa, delta, ForceOnCurve, varargin)
 % This function will calculate one iteration of contour Snake movement
 %
 % P=SnakeMoveIteration2D(S,P,Fext,gamma,kappa)
@@ -17,14 +17,16 @@ function P = SnakeMoveIteration2D(B, P, Fext, gamma, kappa, delta, varargin)
 % Function is written by D.Kroon University of Twente (July 2010)
 
 % Clamp contour to boundary
-P(:,1)=min(max(P(:,1),1),size(Fext,1));
-P(:,2)=min(max(P(:,2),1),size(Fext,2));
+P(:,1)=min(max(P(:,1),1),size(Fext0,1));
+P(:,2)=min(max(P(:,2),1),size(Fext0,2));
 
 % Get image force on the contour points
-Fext1(:,1)=kappa*interp2(Fext(:,:,1), P(:,2), P(:,1));
-Fext1(:,2)=kappa*interp2(Fext(:,:,2), P(:,2), P(:,1));
-% Interp2, can give nan's if contour close to border
-Fext1(isnan(Fext1))=0;
+if ForceOnCurve
+    % open ends only for now
+    Fext1 = kappa * curvewise_edge_energy( Fext0, P);
+else
+    Fext1 = kappa * pointwise_edge_energy( Fext0, P);
+end
 
 Closed = false;
 % if Closed
@@ -61,8 +63,9 @@ if ~isempty(varargin) && ~isempty(varargin{1})
         error('wrong array of fixed points')
     end
 end
+
 % Clamp contour to boundary
-P(:,1)=min(max(P(:,1),1),size(Fext,1));
-P(:,2)=min(max(P(:,2),1),size(Fext,2));
+P(:,1)=min(max(P(:,1),1),size(Fext0,1));
+P(:,2)=min(max(P(:,2),1),size(Fext0,2));
 
 
