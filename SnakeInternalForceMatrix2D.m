@@ -27,11 +27,17 @@ end
 
 A_alpha = A0;
 if ~circ
-    A_alpha(1,:,:) = 0;
-    A_alpha(end,:,:) = 0;
-    A_beta = A_alpha;
-    A_beta(2,:,:) = 0;
-    A_beta(end-1,:,:) = 0;
+    A_alpha(1:2,:,1:2) = 0;
+    A_alpha(1:2,1,1:2) = 1;
+    
+    A_alpha(end-1:end,:,end-1:end) = 0;
+    A_alpha(end-1:end,end,end-1:end) = 1;
+    
+%     A_alpha(1,:,:) = 0;
+%     A_alpha(end,:,:) = 0;
+     A_beta = A_alpha;
+%     A_beta(2,:,:) = 0;
+%     A_beta(end-1,:,:) = 0;
 end
 
 A_ = bsxfun(@times, A_alpha, permute( alphas_(:),[2,3,1]) ) + ...

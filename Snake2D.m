@@ -132,16 +132,16 @@ end
 
 % Convert input to double
 I = double(I);
-if ~Options.useAsEnergy
+% if ~Options.useAsEnergy
     % If color image convert to grayscale
     if(size(I,3)==3), I=rgb2gray(I); end
     
     [ Eext, Fext ] = gvf_energy_force( I, Options );
-else
-    Eext = I;
-    Fext(:,:,1) = Eext;
-    Fext(:,:,2) = Eext;
-end
+% else
+%     Eext = I;
+%     Fext(:,:,1) = Eext;
+%     Fext(:,:,2) = Eext;
+% end
 % Eext = -(cumsum(Fext(:,:,1),1) + cumsum(Fext(:,:,2),2));
 % Eext = (ImageDerivatives2D(I,Options.Sigma1,'xx') + ImageDerivatives2D(I,Options.Sigma1,'yy'));
 
@@ -165,11 +165,13 @@ if(Options.Verbose)
     spl(1) = subplot(2,2,1);
     imagesc(Fext(:,:,1));
     hold on;
-    title('y-component')
+    title('x-component')
     spl(2) = subplot(2,2,2);
     imagesc(Fext(:,:,2));
     hold all
-    title('x-component')
+    title('y-component')
+    Q = 0.025;
+    set(spl(1:2),'clim', max(abs(quantile(Fext(:), [Q, 1-Q]))) *[-1,1] )
     spl(3) = subplot(2,2,3);
     spacing = 20;
     [x,y]=ndgrid(1:spacing:size(Fext,1),1:spacing:size(Fext,2));

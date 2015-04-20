@@ -32,13 +32,14 @@ Closed = false;
 % if Closed
 % Calculate the baloonforce on the contour points
 N = GetContourNormals2D(P, Closed);
-Fext2 = delta*N; % zeros(size(N));%
+Fext2 = delta*N; %
+% Fext2 = zeros(size(N));%
 % else
 %     Fext2 = zeros(size(Fext1));%
 % end
 % Update contour positions
-ssx = gamma*P(:,1) + Fext1(:,1) + Fext2(:,1);
-ssy = gamma*P(:,2) + Fext1(:,2) + Fext2(:,2);
+ssx = P(:,1) + ( Fext1(:,1) + Fext2(:,1)) / gamma;
+ssy = P(:,2) + ( Fext1(:,2) + Fext2(:,2) ) / gamma;
 if ~isempty(varargin) && ~isempty(varargin{1})
     fixed = varargin{1};
     if size(fixed,2) == 1
@@ -50,8 +51,8 @@ if ~isempty(varargin) && ~isempty(varargin{1})
     end
 end
 
-P(:,1) = B * ssx;
-P(:,2) = B * ssy;
+P(:,1) = gamma* B * ssx;
+P(:,2) = gamma* B * ssy;
 
 if ~isempty(varargin) && ~isempty(varargin{1})
     if size(fixed,2) == 1
