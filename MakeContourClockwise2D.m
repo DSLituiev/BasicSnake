@@ -1,4 +1,4 @@
-function P=MakeContourClockwise2D(P)
+function [P, flip_flag] = MakeContourClockwise2D(P)
 % This function MakeContourClockwise will make a contour clockwise 
 % contour clockwise. This is done by calculating the area inside the 
 % contour, if it is positive we change the contour orientation.
@@ -13,4 +13,9 @@ area = 0.5*sum((O((1:size(P,1))+1,1) .* (O((1:size(P,1))+2,2) - O((1:size(P,1)),
 
 % If the area inside  the contour is positive, change from counter-clockwise to 
 % clockwise
-if(area>0), P=P(end:-1:1,:); end
+if(area>0),
+    P=P(end:-1:1,:); 
+    flip_flag = true;
+else 
+    flip_flag = false;
+end

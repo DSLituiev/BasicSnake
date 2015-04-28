@@ -1,4 +1,4 @@
-function Ainv = SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma, circ)
+function [Ainv, A] = SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma, circ)
 %
 % B=SnakeInternalForceMatrix2D(nPoints,alpha,beta,gamma)
 %

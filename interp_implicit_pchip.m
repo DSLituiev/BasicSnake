@@ -1,4 +1,9 @@
-function [data_interp, t, t0] = interp_implicit_pchip(data)
+function [data_interp, t, t0, data] = interp_implicit_pchip(data)
+
+% %% remove points that are too close 
+% seglen = sqrt(sum(diff(data,1,1).^2,2));
+% data = data( [seglen>1; true], :);
+%%
 seglen = sqrt(sum(diff(data,1,1).^2,2));
 t0 = [0;cumsum(seglen)];
 t = (1:round(sum(seglen)))';

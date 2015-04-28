@@ -26,21 +26,11 @@ if Closed
     
     dx=xt(f)-xt(b);
     dy=yt(f)-yt(b);
+    % Normals of contourpoints
+    l=sqrt(dx.^2+dy.^2);
+    nx = -dy./l;
+    ny =  dx./l;
+    N(:,1)=nx; N(:,2)=ny;
 else
-    a=1;
-    % From array to separate x,y
-    xt=P(:,1); yt=P(:,2);
-    
-    % Derivatives of contour
-    n=length(xt);
-    f=(1:n)+a; f(f>n)=f(f>n)-n;
-    b=(1:n)-a; b(b<1)=b(b<1)+n;
-    
-    dx = interp1( (1.5:1:(numel(xt)-0.5))', diff(xt), (1:numel(xt))', 'pchip');
-    dy = interp1( (1.5:1:(numel(yt)-0.5))', diff(yt), (1:numel(yt))', 'pchip');
+    N = zeros(size(P));
 end
-% Normals of contourpoints
-l=sqrt(dx.^2+dy.^2);
-nx = -dy./l;
-ny =  dx./l;
-N(:,1)=nx; N(:,2)=ny;

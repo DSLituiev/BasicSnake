@@ -1,4 +1,4 @@
-function [P,J]=Snake2D(I,P,Options)
+function [P,J] = Snake2D_ode_solver(I,P,Options)
 % This function SNAKE implements the basic snake segmentation. A snake is an
 % active (moving) contour, in which the points are attracted by edges and
 % other boundaries. To keep the contour smooth, an membrame and thin plate
@@ -123,7 +123,7 @@ end
 Options.ForceOnCurve = strcmpi(Options.('forceActsUpon'), 'curve');
 
 % The contour must always be clockwise (because of the balloon force)
-[P, flip_flag] = MakeContourClockwise2D(P);
+[P, flip_flag] =MakeContourClockwise2D(P);
 
 % Make an uniform sampled contour description
 if Options.Closed && Options.nPoints ~= size(P,1)
@@ -173,12 +173,11 @@ if(Options.Verbose)
     Q = 0.025;
     set(spl(1:2),'clim', max(abs(quantile(Fext(:), [Q, 1-Q]))) *[-1,1] )
     spl(3) = subplot(2,2,3);
-    spacing_x = min(20, size(Fext,2)/8);    
-    spacing_y = min(20, size(Fext,1)/8);
-    [x,y]=ndgrid(1:spacing_y:size(Fext,1),1:spacing_x:size(Fext,2));
+    spacing = 20;
+    [x,y]=ndgrid(1:spacing:size(Fext,1),1:spacing:size(Fext,2));
     imagesc(I), hold on; quiver(y,x,...
-        Fext(1:spacing_y:end,1:spacing_x:end,2),...
-        Fext(1:spacing_y:end,1:spacing_x:end,1), 'w');
+        Fext(1:spacing:end,1:spacing:end,2),...
+        Fext(1:spacing:end,1:spacing:end,1), 'w');
     title('The external force field ')
     spl(4) = subplot(2,2,4);
     title('Snake movement ')
@@ -213,56 +212,39 @@ li(1) = plot(data_interp(:,1), data_interp(:,2), '-','Color',[0 0.8, 0]);
 li(2) = plot(data_interp(:,1), data_interp(:,2), '-','Color', 'k', 'linewidth', Options.linewidth);
 hold all;
 title('Energy and the snake contour movement')
-h = zeros(8,1);
+
 for ii = 1:4
     axes(spl(ii))
     plot(P(:,2),P(:,1),'.','Color',[0, 0.8, 0] );
     hold all;
-    h(ii) = scatter(P(:,2),P(:,1),144*pi,'b','.');    
-    h(4 + ii) = scatter(P(:,2),P(:,1),100*pi,'w','.');
+    h(ii) = scatter(P(:,2),P(:,1),100*pi,'w','.');
 end
 axes(spl(4))
 
 
-A_inv = SnakeInternalForceMatrix2D(Options.nPoints, Options.Alpha, Options.Beta, Options.Gamma, Options.Closed);
-
-if Options.ForceOnCurve
-%         Fext_preint = zeros(size(Fext));
-%          Fext_preint(:,:,2) = cumsum(Fext(:,:,2), 2)/10; %Eext; %
-%          Fext_preint(:,:,1) = cumsum(Fext(:,:,1), 1)/10;
-    ext_energy_iter_fun = @(x, y)SnakeMoveIteration2D(A_inv, x, Fext, ...
-        Options.Gamma, y, Options.Delta, Options.ForceOnCurve, Options.Fixed);
-else
-    ext_energy_iter_fun = @(x, y)SnakeMoveIteration2D(A_inv, x, Fext, ...
-        Options.Gamma, y, Options.Delta, Options.ForceOnCurve, Options.Fixed);
-end
+[~, A] = SnakeInternalForceMatrix2D(Options.nPoints, Options.Alpha, Options.Beta, Options.Gamma, Options.Closed);
 
 
-ii = 1;
-while ii<Options.Iterations
-    P_prev = P;
-    Options.Kappa = Options.Kappa * ( 1 - 1e-6 );
-    
-    P = ext_energy_iter_fun(P_prev, Options.Kappa);
-    if norm(P_prev - P, Options.Norm)/Options.nPoints < Options.AbsTol
-        fprintf('converged in %u iterations!\n', ii)
-        break
+    function out = snake_step(~, y, A, Fext, kappa, ForceOnCurve)        
+        hl = numel(y)/2;
+        if ForceOnCurve
+            % open ends only for now
+            Fext1 = kappa * curvewise_edge_energy( Fext, reshape(y,[hl,2]) );
+        else
+            Fext1 = kappa * pointwise_edge_energy( Fext, reshape(y,[hl,2]) );
+        end
+        out = [ A*y(1:hl) + Fext1(:,1) ;  A*y(hl+1:end) + Fext1(:,2) ];
     end
-    
-    StepNorm = norm( sqrt(sum((P_prev - P).^2, 2)), Options.Norm);
-    if StepNorm > Options.MaxStep
-        warning('too big step: %u', round(norm(P_prev - P, Options.Norm)) )
-        P = P_prev;
-        Options.Kappa = Options.Kappa * (Options.MaxStep/StepNorm);
-        continue
-    else
-        ii = ii+1;
-    end
-    
-    % Show current contour
-    if(Options.Verbose)
+
+[T, Y] = ode45(@(t,y) snake_step(t, y, A, Fext, Options.Kappa, Options.ForceOnCurve) , 1:Options.Iterations, P(:)); % Solve ODE
+
+Y = reshape(Y',[size(P), Options.Iterations]);
+
+if(Options.Verbose)
+    for ii = 1:Options.Iterations        
+        % Show current contour
         c=i/Options.Iterations;
-        [x0, y0] = cp_ordered(P, Options.Closed);
+        [x0, y0] = cp_ordered(Y(:,:,ii), Options.Closed);
         [data_interp] = interp_implicit_pchip([x0, y0]);
         %         set(li, 'xdata',x_, 'ydata', y_, 'Color',[c 1-c 0])
         %         li(i) = line(data_interp(:,1), data_interp(:,2), 'LineStyle', '-','Color', [c, 0.2, 1-c], 'Parent', spl(4));
@@ -272,14 +254,12 @@ while ii<Options.Iterations
         drawnow;
     end
 end
-fprintf('abs numeric error (%u norm): %f\n', Options.Norm, norm(P_prev - P, Options.Norm)/Options.nPoints)
+% fprintf('abs numeric error (%u norm): %f\n', Options.Norm, norm(P_prev - P, Options.Norm)/Options.nPoints)
 
 if(nargout>1)
     J=DrawSegmentedArea2D(P,size(I));
 end
-
 if flip_flag
     P = flipud(P);
 end
-
 end
